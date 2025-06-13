@@ -16,7 +16,7 @@
 ### 步骤 2: 运行一键分流脚本
 1. 下载并运行以下脚本：
    ```bash
-   wget https://raw.githubusercontent.com/Jimmyzxk/DNS-Alice-Unlock/refs/heads/main/dns-unlock.sh && bash dns-unlock.sh
+   wget https://raw.githubusercontent.com/hkfires/DNS-Alice-Unlock/refs/heads/main/dns-unlock.sh && bash dns-unlock.sh
 
 
 ---
