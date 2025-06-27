@@ -1,6 +1,6 @@
 #!/bin/bash
 
-VERSION="0.0.1"
+VERSION="0.0.2"
 LAST_UPDATED=$(date +"%Y-%m-%d")
 AUTHOR="hKFirEs"
 
@@ -249,9 +249,10 @@ set_and_lock_resolv_conf() {
 
 restore_resolv_conf() {
     chattr -i /etc/resolv.conf &>/dev/null
-    if [ -f /etc/resolv.conf.bak ]; then
-        mv /etc/resolv.conf.bak /etc/resolv.conf
-        echo -e "${C_SUCCESS}已从备份恢复 /etc/resolv.conf。${C_RESET}"
+    LATEST_BACKUP=$(ls -t /etc/resolv.conf.bak.* 2>/dev/null | head -n 1)
+    if [ -f "$LATEST_BACKUP" ]; then
+        mv "$LATEST_BACKUP" /etc/resolv.conf
+        echo -e "${C_SUCCESS}已从最新备份 ($LATEST_BACKUP) 恢复 /etc/resolv.conf。${C_RESET}"
     else
         echo "nameserver 8.8.8.8" > /etc/resolv.conf
         echo -e "${C_WARNING}未找到备份，已将 DNS 设置为 8.8.8.8。${C_RESET}"
