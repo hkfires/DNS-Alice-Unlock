@@ -224,7 +224,7 @@ generate_config_from_api() {
 
 stop_services_on_port_53() {
     echo -e "${C_INFO}检查端口 53 的占用情况...${C_RESET}"
-    PIDS=$(lsof -t -i :53 -sTCP:LISTEN,UDP)
+    PIDS=$(lsof -t -i:53)
     if [ -n "$PIDS" ]; then
         for PID in $PIDS; do
             SERVICE_NAME=$(ps -p $PID -o comm=)
