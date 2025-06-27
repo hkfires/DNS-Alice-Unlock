@@ -1,6 +1,6 @@
 #!/bin/bash
 
-VERSION="0.0.2"
+VERSION="0.0.3"
 LAST_UPDATED=$(date +"%Y-%m-%d")
 AUTHOR="hKFirEs"
 
@@ -111,10 +111,14 @@ select_unlock_ips() {
     unlock_ipv6=""
 
     while true; do
-        echo -e "\n${C_SECONDARY}--- 请选择解锁 IPv4 DNS地址 ---${C_RESET}"
-        echo -e "  ${C_PRIMARY}1.${C_RESET} ${C_TEXT}香港 (181.215.*.*)${C_RESET}"
-        echo -e "  ${C_PRIMARY}2.${C_RESET} ${C_TEXT}洛杉矶 (31.22.*.*)${C_RESET}"
-        echo -e "  ${C_PRIMARY}3.${C_RESET} ${C_TEXT}纽约 (31.59.*.*)${C_RESET}"
+        echo -e "\n${C_BORDER}┌───────────────────────────────────┐${C_RESET}"
+        echo -e "${C_BORDER}│ ${C_WARNING}注意: 无Alice IPv4地址勿选专用DNS ${C_BORDER}│${C_RESET}"
+        echo -e "${C_BORDER}│ ${C_WARNING}      否则可能导致无法上网！      ${C_BORDER}│${C_RESET}"
+        echo -e "${C_BORDER}└───────────────────────────────────┘${C_RESET}"
+        echo -e "  ${C_SECONDARY}--- 请选择解锁 IPv4 DNS地址 ---${C_RESET}"
+        echo -e "  ${C_PRIMARY}1.${C_RESET} ${C_TEXT}专用 DNS (香港)${C_RESET}"
+        echo -e "  ${C_PRIMARY}2.${C_RESET} ${C_TEXT}专用 DNS (洛杉矶)${C_RESET}"
+        echo -e "  ${C_PRIMARY}3.${C_RESET} ${C_TEXT}专用 DNS (纽约)${C_RESET}"
         echo -e "  ${C_PRIMARY}4.${C_RESET} ${C_TEXT}自定义 IPv4 地址${C_RESET}"
         echo -e "  ${C_WARNING}5.${C_RESET} ${C_TEXT}跳过 (不设置 IPv4)${C_RESET}"
         read -p "$(echo -e "${C_INPUT_PROMPT} ► 请输入选项 [1-5]: ${C_RESET}")" ipv4_choice
@@ -141,7 +145,11 @@ select_unlock_ips() {
     done
 
     while true; do
-        echo -e "\n${C_SECONDARY}--- 请选择解锁 IPv6 DNS地址 ---${C_RESET}"
+        echo -e "\n${C_BORDER}┌───────────────────────────────────┐${C_RESET}"
+        echo -e "${C_BORDER}│ ${C_WARNING}注意: 无Alice IPv6地址勿选专用DNS ${C_BORDER}│${C_RESET}"
+        echo -e "${C_BORDER}│ ${C_WARNING}      否则可能导致无法上网！      ${C_BORDER}│${C_RESET}"
+        echo -e "${C_BORDER}└───────────────────────────────────┘${C_RESET}"
+        echo -e "  ${C_SECONDARY}--- 请选择解锁 IPv6 DNS地址 ---${C_RESET}"
         echo -e "  ${C_PRIMARY}1.${C_RESET} ${C_TEXT}公共 DNS (大家都能用)${C_RESET}"
         echo -e "  ${C_PRIMARY}2.${C_RESET} ${C_TEXT}专用 DNS (Alice 用户专用)${C_RESET}"
         echo -e "  ${C_PRIMARY}3.${C_RESET} ${C_TEXT}自定义 IPv6 地址${C_RESET}"
@@ -457,14 +465,24 @@ update_script() {
         return
     fi
 
-    if [ "$REMOTE_VERSION" != "$VERSION" ]; then
-        echo -e "${C_SUCCESS}发现新版本: $REMOTE_VERSION，正在更新...${C_RESET}"
-        curl -o "$SCRIPT_PATH" "https://raw.githubusercontent.com/hkfires/DNS-Alice-Unlock/main/${SCRIPT_NAME}"
-        chmod +x "$SCRIPT_PATH"
-        echo -e "${C_SUCCESS}更新完成，请重新运行脚本！${C_RESET}"
-        exit 0
-    else
+    if dpkg --compare-versions "$REMOTE_VERSION" "gt" "$VERSION"; then
+        echo -e "${C_SUCCESS}发现新版本！${C_RESET}"
+        echo -e "${C_INFO}当前版本: ${C_YELLOW}${VERSION}${C_RESET}"
+        echo -e "${C_INFO}最新版本: ${C_GREEN}${REMOTE_VERSION}${C_RESET}"
+        read -p "$(echo -e "${C_INPUT_PROMPT} ► 是否要更新到最新版本？(y/n): ${C_RESET}")" confirm_update
+        if [[ "$confirm_update" == "y" || "$confirm_update" == "Y" ]]; then
+            echo -e "${C_INFO}正在更新...${C_RESET}"
+            curl -o "$SCRIPT_PATH" "https://raw.githubusercontent.com/hkfires/DNS-Alice-Unlock/main/${SCRIPT_NAME}"
+            chmod +x "$SCRIPT_PATH"
+            echo -e "${C_SUCCESS}更新完成，请重新运行脚本！${C_RESET}"
+            exit 0
+        else
+            echo -e "${C_INFO}更新已取消。${C_RESET}"
+        fi
+    elif [ "$REMOTE_VERSION" == "$VERSION" ]; then
         echo -e "${C_SUCCESS}当前已是最新版本。${C_RESET}"
+    else
+        echo -e "${C_WARNING}本地版本 (${VERSION}) 高于远程版本 (${REMOTE_VERSION})，无需更新。${C_RESET}"
     fi
 }
 
@@ -495,6 +513,16 @@ get_display_width() {
     '
 }
 
+get_dns_status() {
+    if systemctl is-active --quiet dnsmasq; then
+        echo "Dnsmasq"
+    elif systemctl is-active --quiet smartdns; then
+        echo "SmartDNS"
+    else
+        echo "系统默认"
+    fi
+}
+
 display_header() {
     local width=40
     print_centered() {
@@ -512,11 +540,13 @@ display_header() {
     IP_INFO=$(curl -s http://ipinfo.io/json)
     IP_ADDRESS=$(echo "$IP_INFO" | jq -r '.ip // "N/A"')
     REGION=$(echo "$IP_INFO" | jq -r '.country // "N/A"')
+    DNS_STATUS=$(get_dns_status)
 
     echo -e "${C_BORDER}\n========================================${C_RESET}"
     print_centered "Alice 专用 DNS 解锁脚本" "${C_PRIMARY}"
     print_centered "版本: $VERSION | 作者: $AUTHOR" "${C_HI_WHITE}"
     print_centered "VPS IP: $IP_ADDRESS ($REGION)" "${C_HI_WHITE}"
+    print_centered "当前DNS服务: $DNS_STATUS" "${C_HI_WHITE}"
     echo -e "${C_BORDER}========================================${C_RESET}"
 }
 
