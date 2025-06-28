@@ -1,6 +1,6 @@
 #!/bin/bash
 
-VERSION="0.0.3"
+VERSION="0.0.4"
 LAST_UPDATED=$(date +"%Y-%m-%d")
 AUTHOR="hKFirEs"
 
@@ -11,7 +11,11 @@ CONFIG_FILE="/etc/dnsmasq.conf"
 SMARTDNS_CONFIG_FILE="/etc/smartdns/smartdns.conf"
 
 API_BASE_URL="https://dnsconfig.072899.xyz"
-
+ONEKEY_SCRIPT_NAME="onekey-tun2socks.sh"
+ONEKEY_SCRIPT_PATH="/root/$ONEKEY_SCRIPT_NAME"
+ 
+IP_ADDRESS=""
+REGION=""
 C_RESET='\033[0m'
 C_BLACK='\033[0;30m'
 C_RED='\033[0;31m'
@@ -113,6 +117,7 @@ select_unlock_ips() {
     while true; do
         echo -e "\n${C_BORDER}┌───────────────────────────────────┐${C_RESET}"
         echo -e "${C_BORDER}│ ${C_WARNING}注意: 无Alice IPv4地址勿选专用DNS ${C_BORDER}│${C_RESET}"
+        echo -e "${C_BORDER}│ ${C_WARNING}     使用家宽出口勿选专用DNS！    ${C_BORDER}│${C_RESET}"
         echo -e "${C_BORDER}│ ${C_WARNING}      否则可能导致无法上网！      ${C_BORDER}│${C_RESET}"
         echo -e "${C_BORDER}└───────────────────────────────────┘${C_RESET}"
         echo -e "  ${C_SECONDARY}--- 请选择解锁 IPv4 DNS地址 ---${C_RESET}"
@@ -134,24 +139,24 @@ select_unlock_ips() {
                         unlock_ipv4="$custom_ipv4"
                         break
                     else
-                        echo -e "${C_ERROR}无效的 IPv4 地址格式，请重新输入。${C_RESET}"
+                        echo -e "\n${C_ERROR}无效的 IPv4 地址格式，请重新输入。${C_RESET}"
                     fi
                 done
                 break
                 ;;
             5) break ;;
-            *) echo -e "${C_ERROR}无效选项，请输入 1 到 5 之间的数字。${C_RESET}" ;;
+            *) echo -e "\n${C_ERROR}无效选项，请输入 1 到 5 之间的数字。${C_RESET}" ;;
         esac
     done
 
     while true; do
         echo -e "\n${C_BORDER}┌───────────────────────────────────┐${C_RESET}"
-        echo -e "${C_BORDER}│ ${C_WARNING}注意: 无Alice IPv6地址勿选专用DNS ${C_BORDER}│${C_RESET}"
+        echo -e "${C_BORDER}│ ${C_WARNING}注意: 非Alice IPv6机型勿选专用DNS ${C_BORDER}│${C_RESET}"
         echo -e "${C_BORDER}│ ${C_WARNING}      否则可能导致无法上网！      ${C_BORDER}│${C_RESET}"
         echo -e "${C_BORDER}└───────────────────────────────────┘${C_RESET}"
         echo -e "  ${C_SECONDARY}--- 请选择解锁 IPv6 DNS地址 ---${C_RESET}"
         echo -e "  ${C_PRIMARY}1.${C_RESET} ${C_TEXT}公共 DNS (大家都能用)${C_RESET}"
-        echo -e "  ${C_PRIMARY}2.${C_RESET} ${C_TEXT}专用 DNS (Alice 用户专用)${C_RESET}"
+        echo -e "  ${C_PRIMARY}2.${C_RESET} ${C_TEXT}专用 DNS (Alice用户专用)${C_RESET}"
         echo -e "  ${C_PRIMARY}3.${C_RESET} ${C_TEXT}自定义 IPv6 地址${C_RESET}"
         echo -e "  ${C_WARNING}4.${C_RESET} ${C_TEXT}跳过 (不设置 IPv6)${C_RESET}"
         read -p "$(echo -e "${C_INPUT_PROMPT} ► 请输入选项 [1-4]: ${C_RESET}")" ipv6_choice
@@ -166,18 +171,18 @@ select_unlock_ips() {
                         unlock_ipv6="$custom_ipv6"
                         break
                     else
-                        echo -e "${C_ERROR}无效的 IPv6 地址格式，请重新输入。${C_RESET}"
+                        echo -e "\n${C_ERROR}无效的 IPv6 地址格式，请重新输入。${C_RESET}"
                     fi
                 done
                 break
                 ;;
             4) break ;;
-            *) echo -e "${C_ERROR}无效选项，请输入 1 到 4 之间的数字。${C_RESET}" ;;
+            *) echo -e "\n${C_ERROR}无效选项，请输入 1 到 4 之间的数字。${C_RESET}" ;;
         esac
     done
 
     if [ -z "$unlock_ipv4" ] && [ -z "$unlock_ipv6" ]; then
-        echo -e "${C_WARNING}未选择任何 IP 地址，操作取消。${C_RESET}"
+        echo -e "\n${C_WARNING}未选择任何 IP 地址，操作取消。${C_RESET}"
         return 1
     fi
     return 0
@@ -201,7 +206,7 @@ generate_config_from_api() {
     DOMAINS_JSON=$(curl -s "${API_BASE_URL}/api/get_alice_whitelist")
 
     if [ -z "$DOMAINS_JSON" ] || ! echo "$DOMAINS_JSON" | jq -e '.domains' > /dev/null; then
-        echo -e "${C_ERROR}错误: 无法从 API 获取域名列表，或者列表为空。${C_RESET}"
+        echo -e "\n${C_ERROR}错误: 无法从 API 获取域名列表，或者列表为空。${C_RESET}"
         return 1
     fi
     
@@ -221,7 +226,7 @@ generate_config_from_api() {
 
     if echo "${response}" | jq -e '.error' > /dev/null; then
         error_message=$(echo "${response}" | jq -r '.error')
-        echo -e "${C_ERROR}错误: 生成 ${display_type} 配置失败: ${error_message}${C_RESET}"
+        echo -e "\n${C_ERROR}错误: 生成 ${display_type} 配置失败: ${error_message}${C_RESET}"
         return 1
     fi
 
@@ -263,7 +268,7 @@ restore_resolv_conf() {
         echo -e "${C_SUCCESS}已从最新备份 ($LATEST_BACKUP) 恢复 /etc/resolv.conf。${C_RESET}"
     else
         echo "nameserver 8.8.8.8" > /etc/resolv.conf
-        echo -e "${C_WARNING}未找到备份，已将 DNS 设置为 8.8.8.8。${C_RESET}"
+        echo -e "\n${C_WARNING}未找到备份，已将 DNS 设置为 8.8.8.8。${C_RESET}"
     fi
     if systemctl list-units --type=service | grep -q 'systemd-resolved'; then
         systemctl restart systemd-resolved
@@ -274,7 +279,7 @@ install_and_configure_dnsmasq() {
     echo -e "${C_INFO}开始安装和配置 Dnsmasq...${C_RESET}"
     apt-get install -y dnsmasq
     if ! command -v dnsmasq &> /dev/null; then
-        echo -e "${C_ERROR}Dnsmasq 安装失败。${C_RESET}"
+        echo -e "\n${C_ERROR}Dnsmasq 安装失败。${C_RESET}"
         return 1
     fi
     
@@ -291,7 +296,7 @@ install_and_configure_dnsmasq() {
 
 uninstall_dnsmasq() {
     if ! dpkg-query -W -f='${Status}' dnsmasq 2>/dev/null | grep -q "ok installed"; then
-        echo -e "${C_WARNING}Dnsmasq 未安装，无需卸载。${C_RESET}"
+        echo -e "\n${C_WARNING}Dnsmasq 未安装，无需卸载。${C_RESET}"
         return
     fi
     echo -e "${C_INFO}开始卸载 Dnsmasq...${C_RESET}"
@@ -304,7 +309,7 @@ uninstall_dnsmasq() {
 
 update_dnsmasq_config() {
     if ! dpkg-query -W -f='${Status}' dnsmasq 2>/dev/null | grep -q "ok installed"; then
-        echo -e "${C_WARNING}Dnsmasq 未安装，请先安装。${C_RESET}"
+        echo -e "\n${C_WARNING}Dnsmasq 未安装，请先安装。${C_RESET}"
         return
     fi
     echo -e "${C_INFO}开始更新 Dnsmasq 配置...${C_RESET}"
@@ -315,7 +320,7 @@ update_dnsmasq_config() {
 
 restart_dnsmasq() {
     if ! dpkg-query -W -f='${Status}' dnsmasq 2>/dev/null | grep -q "ok installed"; then
-        echo -e "${C_WARNING}Dnsmasq 未安装，无需重启。${C_RESET}"
+        echo -e "\n${C_WARNING}Dnsmasq 未安装，无需重启。${C_RESET}"
         return
     fi
     echo -e "${C_INFO}正在重启 Dnsmasq 服务...${C_RESET}"
@@ -323,7 +328,7 @@ restart_dnsmasq() {
     if systemctl is-active --quiet dnsmasq; then
         echo -e "${C_SUCCESS}Dnsmasq 服务重启成功。${C_RESET}"
     else
-        echo -e "${C_ERROR}Dnsmasq 服务重启失败。${C_RESET}"
+        echo -e "\n${C_ERROR}Dnsmasq 服务重启失败。${C_RESET}"
     fi
 }
 
@@ -340,7 +345,7 @@ install_smartdns_package() {
     apt-get -f install -y
     rm -f "$TEMP_DEB"
     if ! command -v smartdns >/dev/null 2>&1; then
-        echo -e "${C_ERROR}SmartDNS 安装失败。${C_RESET}"
+        echo -e "\n${C_ERROR}SmartDNS 安装失败。${C_RESET}"
         return 1
     fi
     echo -e "${C_SUCCESS}SmartDNS 安装成功。${C_RESET}"
@@ -363,7 +368,7 @@ install_and_configure_smartdns() {
 
 uninstall_smartdns() {
     if ! dpkg-query -W -f='${Status}' smartdns 2>/dev/null | grep -q "ok installed"; then
-        echo -e "${C_WARNING}SmartDNS 未安装，无需卸载。${C_RESET}"
+        echo -e "\n${C_WARNING}SmartDNS 未安装，无需卸载。${C_RESET}"
         return
     fi
     echo -e "${C_INFO}开始卸载 SmartDNS...${C_RESET}"
@@ -376,7 +381,7 @@ uninstall_smartdns() {
 
 update_smartdns_config() {
     if ! dpkg-query -W -f='${Status}' smartdns 2>/dev/null | grep -q "ok installed"; then
-        echo -e "${C_WARNING}SmartDNS 未安装，请先安装。${C_RESET}"
+        echo -e "\n${C_WARNING}SmartDNS 未安装，请先安装。${C_RESET}"
         return
     fi
     echo -e "${C_INFO}开始更新 SmartDNS 配置...${C_RESET}"
@@ -387,7 +392,7 @@ update_smartdns_config() {
 
 restart_smartdns() {
     if ! dpkg-query -W -f='${Status}' smartdns 2>/dev/null | grep -q "ok installed"; then
-        echo -e "${C_WARNING}SmartDNS 未安装，无需重启。${C_RESET}"
+        echo -e "\n${C_WARNING}SmartDNS 未安装，无需重启。${C_RESET}"
         return
     fi
     echo -e "${C_INFO}正在重启 SmartDNS 服务...${C_RESET}"
@@ -395,10 +400,68 @@ restart_smartdns() {
     if systemctl is-active --quiet smartdns; then
         echo -e "${C_SUCCESS}SmartDNS 服务重启成功。${C_RESET}"
     else
-        echo -e "${C_ERROR}SmartDNS 服务重启失败。${C_RESET}"
+        echo -e "\n${C_ERROR}SmartDNS 服务重启失败。${C_RESET}"
     fi
 }
 
+onekey_script_check() {
+    if [ ! -f "$ONEKEY_SCRIPT_PATH" ]; then
+        echo -e "${C_INFO}检测到出口配置脚本不存在，正在下载...${C_RESET}"
+        curl -L https://raw.githubusercontent.com/hkfires/onekey-tun2socks/main/onekey-tun2socks.sh -o "$ONEKEY_SCRIPT_PATH"
+        if [ $? -ne 0 ]; then
+            echo -e "\n${C_ERROR}脚本下载失败，请检查网络或手动下载。${C_RESET}"
+            return 1
+        fi
+        chmod +x "$ONEKEY_SCRIPT_PATH"
+        echo -e "${C_SUCCESS}脚本下载并授权成功！${C_RESET}"
+    fi
+    return 0
+}
+
+install_alice_exit() {
+    onekey_script_check || return
+    echo -e "\n${C_INFO}--- 正在安装 Alice 出口 ---${C_RESET}"
+    sudo "$ONEKEY_SCRIPT_PATH" -i alice
+    refresh_ip_info
+}
+
+change_alice_exit() {
+    onekey_script_check || return
+    sudo "$ONEKEY_SCRIPT_PATH" -s
+    refresh_ip_info
+}
+
+update_alice_exit() {
+    onekey_script_check || return
+    sudo "$ONEKEY_SCRIPT_PATH" -u
+}
+
+uninstall_alice_exit() {
+    onekey_script_check || return
+    sudo "$ONEKEY_SCRIPT_PATH" -r
+    refresh_ip_info
+}
+
+alice_socks5_exit_menu() {
+    while true; do
+        echo -e "\n${C_SECONDARY}--- Alice Socks5 出口 ---${C_RESET}"
+        echo -e "  ${C_PRIMARY}1.${C_RESET} ${C_TEXT}安装 Alice 出口${C_RESET}"
+        echo -e "  ${C_PRIMARY}2.${C_RESET} ${C_TEXT}变更 Alice 出口${C_RESET}"
+        echo -e "  ${C_PRIMARY}3.${C_RESET} ${C_TEXT}更新出口配置脚本${C_RESET}"
+        echo -e "  ${C_PRIMARY}4.${C_RESET} ${C_TEXT}卸载出口配置脚本${C_RESET}"
+        echo -e "  ${C_SUCCESS}0.${C_RESET} ${C_TEXT}返回主菜单${C_RESET}"
+        read -p "$(echo -e "${C_INPUT_PROMPT} ► 请输入选项: ${C_RESET}")" choice
+        case $choice in
+            1) install_alice_exit ;;
+            2) change_alice_exit ;;
+            3) update_alice_exit ;;
+            4) uninstall_alice_exit ;;
+            0) break ;;
+            *) echo -e "\n${C_ERROR}无效选项！${C_RESET}" ;;
+        esac
+    done
+}
+ 
 dnsmasq_menu() {
     while true; do
         echo -e "\n${C_SECONDARY}--- Dnsmasq 分流配置 ---${C_RESET}"
@@ -414,7 +477,7 @@ dnsmasq_menu() {
             3) update_dnsmasq_config ;;
             4) restart_dnsmasq ;;
             0) break ;;
-            *) echo -e "${C_ERROR}无效选项！${C_RESET}" ;;
+            *) echo -e "\n${C_ERROR}无效选项！${C_RESET}" ;;
         esac
     done
 }
@@ -434,7 +497,7 @@ smartdns_menu() {
             3) update_smartdns_config ;;
             4) restart_smartdns ;;
             0) break ;;
-            *) echo -e "${C_ERROR}无效选项！${C_RESET}" ;;
+            *) echo -e "\n${C_ERROR}无效选项！${C_RESET}" ;;
         esac
     done
 }
@@ -452,7 +515,7 @@ dns_check_menu() {
             2) bash <(curl -L -s https://raw.githubusercontent.com/hkfires/DNS-Alice-Unlock/main/dns-check.sh) -M 6 ;;
             3) bash <(curl -L -s https://raw.githubusercontent.com/hkfires/DNS-Alice-Unlock/main/dns-check.sh) ;;
             0) break ;;
-            *) echo -e "${C_ERROR}无效选项！${C_RESET}" ;;
+            *) echo -e "\n${C_ERROR}无效选项！${C_RESET}" ;;
         esac
     done
 }
@@ -461,7 +524,7 @@ update_script() {
     echo -e "${C_INFO}正在检查更新...${C_RESET}"
     REMOTE_VERSION=$(curl -s "https://raw.githubusercontent.com/hkfires/DNS-Alice-Unlock/main/${SCRIPT_NAME}" | grep '^VERSION=' | cut -d'"' -f2)
     if [ -z "$REMOTE_VERSION" ]; then
-        echo -e "${C_ERROR}获取远程版本失败。${C_RESET}"
+        echo -e "\n${C_ERROR}获取远程版本失败。${C_RESET}"
         return
     fi
 
@@ -477,12 +540,12 @@ update_script() {
             echo -e "${C_SUCCESS}更新完成，请重新运行脚本！${C_RESET}"
             exit 0
         else
-            echo -e "${C_INFO}更新已取消。${C_RESET}"
+            echo -e "\n${C_INFO}更新已取消。${C_RESET}"
         fi
     elif [ "$REMOTE_VERSION" == "$VERSION" ]; then
         echo -e "${C_SUCCESS}当前已是最新版本。${C_RESET}"
     else
-        echo -e "${C_WARNING}本地版本 (${VERSION}) 高于远程版本 (${REMOTE_VERSION})，无需更新。${C_RESET}"
+        echo -e "\n${C_WARNING}本地版本 (${VERSION}) 高于远程版本 (${REMOTE_VERSION})，无需更新。${C_RESET}"
     fi
 }
 
@@ -494,10 +557,17 @@ delete_script() {
         echo -e "${C_SUCCESS}脚本已成功删除。${C_RESET}"
         exit 0
     else
-        echo -e "${C_INFO}操作已取消。${C_RESET}"
+        echo -e "\n${C_INFO}操作已取消。${C_RESET}"
     fi
 }
 
+refresh_ip_info() {
+    echo -e "${C_INFO}正在获取最新的网络信息...${C_RESET}"
+    IP_INFO=$(curl -s http://ipinfo.io/json)
+    IP_ADDRESS=$(echo "$IP_INFO" | jq -r '.ip // "N/A"')
+    REGION=$(echo "$IP_INFO" | jq -r '.country // "N/A"')
+}
+ 
 get_display_width() {
     local text="$1"
     echo -n "$text" | perl -Mutf8 -CS -ne '
@@ -536,12 +606,9 @@ display_header() {
         printf "%*s" $padding ""
         echo -e "${color_code}${text}${C_RESET}"
     }
-
-    IP_INFO=$(curl -s http://ipinfo.io/json)
-    IP_ADDRESS=$(echo "$IP_INFO" | jq -r '.ip // "N/A"')
-    REGION=$(echo "$IP_INFO" | jq -r '.country // "N/A"')
+ 
     DNS_STATUS=$(get_dns_status)
-
+ 
     echo -e "${C_BORDER}\n========================================${C_RESET}"
     print_centered "Alice 专用 DNS 解锁脚本" "${C_PRIMARY}"
     print_centered "版本: $VERSION | 作者: $AUTHOR" "${C_HI_WHITE}"
@@ -553,25 +620,28 @@ display_header() {
 check_root
 check_dependencies
 create_symlink
-
+refresh_ip_info
+ 
 while true; do
     display_header
     echo -e "${C_TEXT} 请选择操作:${C_RESET}"
-    echo -e "  ${C_PRIMARY}1.${C_RESET} ${C_TEXT}Dnsmasq DNS分流${C_RESET}"
-    echo -e "  ${C_PRIMARY}2.${C_RESET} ${C_TEXT}SmartDNS DNS分流${C_RESET}"
-    echo -e "  ${C_PRIMARY}3.${C_RESET} ${C_TEXT}流媒体解锁检测${C_RESET}"
-    echo -e "  ${C_PRIMARY}4.${C_RESET} ${C_TEXT}更新脚本${C_RESET}"
-    echo -e "  ${C_WARNING}5.${C_RESET} ${C_TEXT}删除脚本${C_RESET}"
+    echo -e "  ${C_PRIMARY}1.${C_RESET} ${C_TEXT}Alice Socks5出口${C_RESET}"
+    echo -e "  ${C_PRIMARY}2.${C_RESET} ${C_TEXT}Dnsmasq DNS分流${C_RESET}"
+    echo -e "  ${C_PRIMARY}3.${C_RESET} ${C_TEXT}SmartDNS DNS分流${C_RESET}"
+    echo -e "  ${C_PRIMARY}4.${C_RESET} ${C_TEXT}流媒体解锁检测${C_RESET}"
+    echo -e "  ${C_PRIMARY}5.${C_RESET} ${C_TEXT}更新脚本${C_RESET}"
+    echo -e "  ${C_WARNING}6.${C_RESET} ${C_TEXT}删除脚本${C_RESET}"
     echo -e "  ${C_ERROR}0.${C_RESET} ${C_TEXT}退出${C_RESET}"
     read -p "$(echo -e "${C_INPUT_PROMPT} ► 请输入选项: ${C_RESET}")" main_choice
-
+ 
     case $main_choice in
-        1) dnsmasq_menu ;;
-        2) smartdns_menu ;;
-        3) dns_check_menu ;;
-        4) update_script ;;
-        5) delete_script ;;
-        0) echo -e "${C_ERROR}退出脚本...${C_RESET}"; exit 0 ;;
-        *) echo -e "${C_ERROR}无效选项！${C_RESET}" ;;
+        1) alice_socks5_exit_menu ;;
+        2) dnsmasq_menu ;;
+        3) smartdns_menu ;;
+        4) dns_check_menu ;;
+        5) update_script ;;
+        6) delete_script ;;
+        0) echo -e "\n${C_ERROR}退出脚本...${C_RESET}\n"; exit 0 ;;
+        *) echo -e "\n${C_ERROR}无效选项！${C_RESET}" ;;
     esac
 done
