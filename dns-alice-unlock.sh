@@ -1,6 +1,6 @@
 #!/bin/bash
 
-VERSION="0.0.4"
+VERSION="0.0.5"
 LAST_UPDATED=$(date +"%Y-%m-%d")
 AUTHOR="hKFirEs"
 
@@ -115,20 +115,25 @@ select_unlock_ips() {
     unlock_ipv6=""
 
     while true; do
-        echo -e "\n${C_BORDER}┌───────────────────────────────────┐${C_RESET}"
-        echo -e "${C_BORDER}│ ${C_WARNING}注意: 无Alice IPv4地址勿选专用DNS ${C_BORDER}│${C_RESET}"
-        echo -e "${C_BORDER}│ ${C_WARNING}     使用家宽出口勿选专用DNS！    ${C_BORDER}│${C_RESET}"
-        echo -e "${C_BORDER}│ ${C_WARNING}      否则可能导致无法上网！      ${C_BORDER}│${C_RESET}"
-        echo -e "${C_BORDER}└───────────────────────────────────┘${C_RESET}"
-        echo -e "  ${C_SECONDARY}--- 请选择解锁 IPv4 DNS地址 ---${C_RESET}"
+        echo -e "\n${C_BORDER}┌───────────────────────────────────────┐${C_RESET}"
+        echo -e "${C_BORDER}│ ${C_WARNING}   注意: 只能选择一种类型的DNS地址    ${C_BORDER}│${C_RESET}"
+        echo -e "${C_BORDER}│ ${C_ERROR}  无${C_WARNING}Alice IPv4/IPv6地址${C_ERROR}勿选${C_WARNING}专用DNS！  ${C_BORDER}│${C_RESET}"
+        echo -e "${C_BORDER}│ ${C_WARNING}  使用Alice家宽出口${C_ERROR}勿选${C_WARNING}IPv4专用DNS！  ${C_BORDER}│${C_RESET}"
+        echo -e "${C_BORDER}│ ${C_WARNING}       选错DNS将导致无法上网！        ${C_BORDER}│${C_RESET}"
+        echo -e "${C_BORDER}└───────────────────────────────────────┘${C_RESET}"
+        echo -e "  ${C_B_YELLOW}--- IPv4 DNS 选项 ---${C_RESET}"
         echo -e "  ${C_PRIMARY}1.${C_RESET} ${C_TEXT}专用 DNS (香港)${C_RESET}"
         echo -e "  ${C_PRIMARY}2.${C_RESET} ${C_TEXT}专用 DNS (洛杉矶)${C_RESET}"
         echo -e "  ${C_PRIMARY}3.${C_RESET} ${C_TEXT}专用 DNS (纽约)${C_RESET}"
         echo -e "  ${C_PRIMARY}4.${C_RESET} ${C_TEXT}自定义 IPv4 地址${C_RESET}"
-        echo -e "  ${C_WARNING}5.${C_RESET} ${C_TEXT}跳过 (不设置 IPv4)${C_RESET}"
-        read -p "$(echo -e "${C_INPUT_PROMPT} ► 请输入选项 [1-5]: ${C_RESET}")" ipv4_choice
+        echo -e "  ${C_B_YELLOW}--- IPv6 DNS 选项 ---${C_RESET}"
+        echo -e "  ${C_PRIMARY}5.${C_RESET} ${C_TEXT}公共 DNS (大家都能用)${C_RESET}"
+        echo -e "  ${C_PRIMARY}6.${C_RESET} ${C_TEXT}专用 DNS (Alice用户专用)${C_RESET}"
+        echo -e "  ${C_PRIMARY}7.${C_RESET} ${C_TEXT}自定义 IPv6 地址${C_RESET}"
+        echo -e "  ${C_WARNING}8.${C_RESET} ${C_TEXT}跳过 (不设置任何DNS地址)${C_RESET}"
+        read -p "$(echo -e "${C_INPUT_PROMPT} ► 请输入选项 [1-8]: ${C_RESET}")" choice
 
-        case $ipv4_choice in
+        case $choice in
             1) unlock_ipv4="181.215.6.75"; break ;;
             2) unlock_ipv4="31.22.111.126"; break ;;
             3) unlock_ipv4="31.59.111.6"; break ;;
@@ -144,27 +149,9 @@ select_unlock_ips() {
                 done
                 break
                 ;;
-            5) break ;;
-            *) echo -e "\n${C_ERROR}无效选项，请输入 1 到 5 之间的数字。${C_RESET}" ;;
-        esac
-    done
-
-    while true; do
-        echo -e "\n${C_BORDER}┌───────────────────────────────────┐${C_RESET}"
-        echo -e "${C_BORDER}│ ${C_WARNING}注意: 非Alice IPv6机型勿选专用DNS ${C_BORDER}│${C_RESET}"
-        echo -e "${C_BORDER}│ ${C_WARNING}      否则可能导致无法上网！      ${C_BORDER}│${C_RESET}"
-        echo -e "${C_BORDER}└───────────────────────────────────┘${C_RESET}"
-        echo -e "  ${C_SECONDARY}--- 请选择解锁 IPv6 DNS地址 ---${C_RESET}"
-        echo -e "  ${C_PRIMARY}1.${C_RESET} ${C_TEXT}公共 DNS (大家都能用)${C_RESET}"
-        echo -e "  ${C_PRIMARY}2.${C_RESET} ${C_TEXT}专用 DNS (Alice用户专用)${C_RESET}"
-        echo -e "  ${C_PRIMARY}3.${C_RESET} ${C_TEXT}自定义 IPv6 地址${C_RESET}"
-        echo -e "  ${C_WARNING}4.${C_RESET} ${C_TEXT}跳过 (不设置 IPv6)${C_RESET}"
-        read -p "$(echo -e "${C_INPUT_PROMPT} ► 请输入选项 [1-4]: ${C_RESET}")" ipv6_choice
-
-        case $ipv6_choice in
-            1) unlock_ipv6="2a14:67c0:118::1"; break ;;
-            2) unlock_ipv6="2a14:67c0:103:c::a"; break ;;
-            3)
+            5) unlock_ipv6="2a14:67c0:118::1"; break ;;
+            6) unlock_ipv6="2a14:67c0:103:c::a"; break ;;
+            7)
                 while true; do
                     read -p "$(echo -e "${C_INPUT_PROMPT} ► 请输入您的自定义解锁 IPv6 DNS地址: ${C_RESET}")" custom_ipv6
                     if is_valid_ipv6 "$custom_ipv6"; then
@@ -176,8 +163,8 @@ select_unlock_ips() {
                 done
                 break
                 ;;
-            4) break ;;
-            *) echo -e "\n${C_ERROR}无效选项，请输入 1 到 4 之间的数字。${C_RESET}" ;;
+            8) break ;;
+            *) echo -e "\n${C_ERROR}无效选项，请输入 1 到 8 之间的数字。${C_RESET}" ;;
         esac
     done
 
@@ -543,7 +530,7 @@ update_script() {
             echo -e "\n${C_INFO}更新已取消。${C_RESET}"
         fi
     elif [ "$REMOTE_VERSION" == "$VERSION" ]; then
-        echo -e "${C_SUCCESS}当前已是最新版本。${C_RESET}"
+        echo -e "\n${C_SUCCESS}当前已是最新版本。${C_RESET}"
     else
         echo -e "\n${C_WARNING}本地版本 (${VERSION}) 高于远程版本 (${REMOTE_VERSION})，无需更新。${C_RESET}"
     fi
