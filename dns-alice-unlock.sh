@@ -1,6 +1,6 @@
 #!/bin/bash
 
-VERSION="0.0.7"
+VERSION="0.0.8"
 LAST_UPDATED=$(date +"%Y-%m-%d")
 AUTHOR="hKFirEs"
 
@@ -661,9 +661,9 @@ xykt_media_check() {
         echo -e "  ${C_SUCCESS}0.${C_RESET} ${C_TEXT}返回上一级${C_RESET}"
         read -p "$(echo -e "${C_INPUT_PROMPT} ► 请输入选项: ${C_RESET}")" choice
         case $choice in
-            1) bash <(curl -L -s https://raw.githubusercontent.com/1-stream/RegionRestrictionCheck/refs/heads/main/check.sh) -M 4 ;;
-            2) bash <(curl -L -s https://raw.githubusercontent.com/1-stream/RegionRestrictionCheck/refs/heads/main/check.sh) -M 6 ;;
-            3) bash <(curl -L -s https://raw.githubusercontent.com/1-stream/RegionRestrictionCheck/refs/heads/main/check.sh) ;;
+            1) bash <(curl -L -s https://raw.githubusercontent.com/hkfires/RegionRestrictionCheck/refs/heads/main/check.sh) -M 4 ;;
+            2) bash <(curl -L -s https://raw.githubusercontent.com/hkfires/RegionRestrictionCheck/refs/heads/main/check.sh) -M 6 ;;
+            3) bash <(curl -L -s https://raw.githubusercontent.com/hkfires/RegionRestrictionCheck/refs/heads/main/check.sh) ;;
             0) break ;;
             *) echo -e "\n${C_ERROR}无效选项！${C_RESET}" ;;
         esac
