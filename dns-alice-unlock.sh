@@ -1,6 +1,6 @@
 #!/bin/bash
 
-VERSION="0.0.6"
+VERSION="0.0.7"
 LAST_UPDATED=$(date +"%Y-%m-%d")
 AUTHOR="hKFirEs"
 
@@ -110,6 +110,16 @@ is_valid_ipv6() {
     fi
 }
 
+has_ipv4() {
+    (ip -4 addr show | grep -q "inet.*global") && \
+    (curl -4 -s --connect-timeout 2 https://ifconfig.co &>/dev/null)
+}
+
+has_ipv6() {
+    (ip -6 addr show | grep -q "inet6.*global") && \
+    (curl -6 -s --connect-timeout 2 https://ifconfig.co &>/dev/null)
+}
+
 select_unlock_ips() {
     unlock_ipv4=""
     unlock_ipv6=""
@@ -127,7 +137,7 @@ select_unlock_ips() {
         echo -e "  ${C_PRIMARY}3.${C_RESET} ${C_TEXT}专用 DNS (纽约)${C_RESET}"
         echo -e "  ${C_PRIMARY}4.${C_RESET} ${C_TEXT}自定义 IPv4 地址${C_RESET}"
         echo -e "  ${C_B_YELLOW}--- IPv6 DNS 选项 ---${C_RESET}"
-        echo -e "  ${C_PRIMARY}5.${C_RESET} ${C_TEXT}公共 DNS (大家都能用)${C_RESET}"
+        echo -e "  ${C_PRIMARY}5.${C_RESET} ${C_TEXT}公共 DNS (暂时无法使用)${C_RESET}"
         echo -e "  ${C_PRIMARY}6.${C_RESET} ${C_TEXT}专用 DNS (Alice用户专用)${C_RESET}"
         echo -e "  ${C_PRIMARY}7.${C_RESET} ${C_TEXT}自定义 IPv6 地址${C_RESET}"
         echo -e "  ${C_WARNING}8.${C_RESET} ${C_TEXT}跳过 (不设置任何DNS地址)${C_RESET}"
@@ -247,19 +257,154 @@ set_and_lock_resolv_conf() {
     echo -e "${C_SUCCESS}DNS 已设置为 127.0.0.1 并锁定。${C_RESET}"
 }
 
+display_backup_list() {
+    local -n backups_ref=$1
+    echo -e "\n${C_SECONDARY}--- 可用的 resolv.conf 备份 ---${C_RESET}"
+    
+    i=1
+    for backup in "${backups_ref[@]}"; do
+        TIMESTAMP=$(echo "$backup" | grep -o '[0-9]*$')
+        BACKUP_DATE=$(date -d "@$TIMESTAMP" "+%Y-%m-%d %H:%M:%S")
+        
+        echo -e "${C_PRIMARY}${i}.${C_RESET} ${C_TEXT}${backup}${C_RESET} (${C_HI_WHITE}备份于: ${BACKUP_DATE}${C_RESET})"
+        echo -e "${C_HI_BLACK}┌─ 文件内容预览 (前5行) ─"
+        head -n 5 "$backup" | sed 's/^/│ /'
+        echo -e "└──────────────────────────${C_RESET}\n"
+        ((i++))
+    done
+}
+
 restore_resolv_conf() {
     chattr -i /etc/resolv.conf &>/dev/null
-    LATEST_BACKUP=$(ls -t /etc/resolv.conf.bak.* 2>/dev/null | head -n 1)
-    if [ -f "$LATEST_BACKUP" ]; then
-        mv "$LATEST_BACKUP" /etc/resolv.conf
-        echo -e "${C_SUCCESS}已从最新备份 ($LATEST_BACKUP) 恢复 /etc/resolv.conf。${C_RESET}"
+    
+    mapfile -t SORTED_BACKUPS < <(ls -t /etc/resolv.conf.bak* 2>/dev/null)
+
+    if [ ${#SORTED_BACKUPS[@]} -eq 0 ]; then
+        echo -e "\n${C_WARNING}未找到任何 resolv.conf 备份文件。${C_RESET}"
+        
+        local new_content
+        if has_ipv4; then
+            new_content="nameserver 1.1.1.1\nnameserver 8.8.8.8"
+        elif has_ipv6; then
+            new_content="nameserver 2606:4700:4700::1111\nnameserver 2001:4860:4860::8888"
+        else
+            echo -e "${C_ERROR}未检测到有效的 IPv4 或 IPv6 网络连接，无法设置默认DNS。${C_RESET}"
+            return
+        fi
+
+        echo -e "\n${C_INFO}当前 /etc/resolv.conf 内容预览 (前5行):${C_RESET}"
+        echo -e "${C_HI_BLACK}┌──────────────────────────"
+        head -n 5 /etc/resolv.conf | sed 's/^/│ /'
+        echo -e "└──────────────────────────${C_RESET}"
+
+        echo -e "\n${C_INFO}将应用以下默认DNS配置:${C_RESET}"
+        echo -e "${C_HI_BLACK}┌──────────────────────────"
+        echo -e "${new_content}" | sed 's/^/│ /'
+        echo -e "└──────────────────────────${C_RESET}"
+        
+        read -p "$(echo -e "${C_INPUT_PROMPT} ► 是否应用此恢复？ (y/n): ${C_RESET}")" confirm
+        if [[ "$confirm" == "y" || "$confirm" == "Y" ]]; then
+            echo -e "$new_content" > /etc/resolv.conf
+            echo -e "${C_SUCCESS}已将 DNS 设置为公共 DNS。${C_RESET}"
+        else
+            echo -e "\n${C_INFO}操作已取消。${C_RESET}"
+        fi
     else
-        echo "nameserver 8.8.8.8" > /etc/resolv.conf
-        echo -e "\n${C_WARNING}未找到备份，已将 DNS 设置为 8.8.8.8。${C_RESET}"
+        display_backup_list SORTED_BACKUPS
+        
+        echo -e "${C_SUCCESS}0.${C_RESET} ${C_TEXT}取消恢复并返回${C_RESET}"
+        
+        read -p "$(echo -e "${C_INPUT_PROMPT} ► 请选择要恢复的备份 [0-$((${#SORTED_BACKUPS[@]}))]: ${C_RESET}")" choice
+        
+        if [[ "$choice" -gt 0 && "$choice" -le "${#SORTED_BACKUPS[@]}" ]]; then
+            SELECTED_BACKUP="${SORTED_BACKUPS[$((choice-1))]}"
+            
+            echo -e "\n${C_INFO}当前 /etc/resolv.conf 内容预览 (前5行):${C_RESET}"
+            echo -e "${C_HI_BLACK}┌──────────────────────────"
+            head -n 5 /etc/resolv.conf | sed 's/^/│ /'
+            echo -e "└──────────────────────────${C_RESET}"
+
+            echo -e "\n${C_INFO}选定的备份 '${SELECTED_BACKUP}' 内容预览 (前5行):${C_RESET}"
+            echo -e "${C_HI_BLACK}┌──────────────────────────"
+            head -n 5 "$SELECTED_BACKUP" | sed 's/^/│ /'
+            echo -e "└──────────────────────────${C_RESET}"
+
+            read -p "$(echo -e "${C_INPUT_PROMPT} ► 是否恢复此备份？ (y/n): ${C_RESET}")" confirm
+            if [[ "$confirm" == "y" || "$confirm" == "Y" ]]; then
+                cp "$SELECTED_BACKUP" /etc/resolv.conf
+                echo -e "${C_SUCCESS}已从备份 ($SELECTED_BACKUP) 恢复 /etc/resolv.conf。${C_RESET}"
+            else
+                echo -e "\n${C_INFO}恢复操作已取消。${C_RESET}"
+            fi
+        elif [ "$choice" == "0" ]; then
+            echo -e "\n${C_INFO}操作已取消。${C_RESET}"
+        else
+            echo -e "\n${C_ERROR}无效选项！恢复操作已取消。${C_RESET}"
+        fi
     fi
+
     if systemctl list-units --type=service | grep -q 'systemd-resolved'; then
         systemctl restart systemd-resolved
+        echo -e "${C_INFO}已重启 systemd-resolved 服务。${C_RESET}"
     fi
+}
+
+delete_resolv_backup() {
+    mapfile -t SORTED_BACKUPS < <(ls -t /etc/resolv.conf.bak* 2>/dev/null)
+
+    if [ ${#SORTED_BACKUPS[@]} -eq 0 ]; then
+        echo -e "\n${C_WARNING}未找到任何 resolv.conf 备份文件。${C_RESET}"
+        return
+    fi
+
+    display_backup_list SORTED_BACKUPS
+    
+    echo -e "${C_SUCCESS}0.${C_RESET} ${C_TEXT}取消删除并返回${C_RESET}"
+    
+    read -p "$(echo -e "${C_INPUT_PROMPT} ► 请选择要删除的备份 [0-$((${#SORTED_BACKUPS[@]}))]: ${C_RESET}")" choice
+    
+    if [[ "$choice" -gt 0 && "$choice" -le "${#SORTED_BACKUPS[@]}" ]]; then
+        SELECTED_BACKUP="${SORTED_BACKUPS[$((choice-1))]}"
+        read -p "$(echo -e "${C_WARNING}您确定要删除备份文件 ${SELECTED_BACKUP} 吗？此操作不可逆！ (y/n): ${C_RESET}")" confirm_delete
+        if [[ "$confirm_delete" == "y" || "$confirm_delete" == "Y" ]]; then
+            rm -f "$SELECTED_BACKUP"
+            echo -e "\n${C_SUCCESS}备份文件 ${SELECTED_BACKUP} 已被删除。${C_RESET}"
+        else
+            echo -e "\n${C_INFO}删除操作已取消。${C_RESET}"
+        fi
+    elif [ "$choice" == "0" ]; then
+        echo -e "\n${C_INFO}操作已取消。${C_RESET}"
+    else
+        echo -e "\n${C_ERROR}无效选项！删除操作已取消。${C_RESET}"
+    fi
+}
+
+backup_resolv_conf() {
+    local backup_file="/etc/resolv.conf.bak.$(date +%s)"
+    cp /etc/resolv.conf "$backup_file"
+    if [ $? -eq 0 ]; then
+        echo -e "\n${C_SUCCESS}成功创建备份: ${backup_file}${C_RESET}"
+    else
+        echo -e "\n${C_ERROR}创建备份失败！${C_RESET}"
+    fi
+}
+
+system_dns_menu() {
+    while true; do
+        echo -e "\n${C_SECONDARY}--- 系统DNS配置管理 ---${C_RESET}"
+        echo -e "  ${C_PRIMARY}1.${C_RESET} ${C_TEXT}备份 resolv.conf 文件${C_RESET}"
+        echo -e "  ${C_PRIMARY}2.${C_RESET} ${C_TEXT}恢复 resolv.conf 备份${C_RESET}"
+        echo -e "  ${C_PRIMARY}3.${C_RESET} ${C_TEXT}删除 resolv.conf 备份${C_RESET}"
+        echo -e "  ${C_SUCCESS}0.${C_RESET} ${C_TEXT}返回主菜单${C_RESET}"
+        read -p "$(echo -e "${C_INPUT_PROMPT} ► 请输入选项: ${C_RESET}")" choice
+        case $choice in
+            1) backup_resolv_conf ;;
+            2) restore_resolv_conf ;;
+            3) delete_resolv_backup ;;
+            0) break ;;
+            *) echo -e "\n${C_ERROR}无效选项！${C_RESET}" ;;
+        esac
+    done
 }
 
 install_and_configure_dnsmasq() {
@@ -429,7 +574,7 @@ uninstall_alice_exit() {
     refresh_ip_info
 }
 
-alice_socks5_exit_menu() {
+alice_socks5_menu() {
     while true; do
         echo -e "\n${C_SECONDARY}--- Alice Socks5 出口 ---${C_RESET}"
         echo -e "  ${C_PRIMARY}1.${C_RESET} ${C_TEXT}安装 Alice 出口${C_RESET}"
@@ -652,18 +797,20 @@ while true; do
     echo -e "  ${C_PRIMARY}2.${C_RESET} ${C_TEXT}Dnsmasq DNS分流${C_RESET}"
     echo -e "  ${C_PRIMARY}3.${C_RESET} ${C_TEXT}SmartDNS DNS分流${C_RESET}"
     echo -e "  ${C_PRIMARY}4.${C_RESET} ${C_TEXT}流媒体解锁检测${C_RESET}"
-    echo -e "  ${C_PRIMARY}5.${C_RESET} ${C_TEXT}更新脚本${C_RESET}"
-    echo -e "  ${C_WARNING}6.${C_RESET} ${C_TEXT}删除脚本${C_RESET}"
+    echo -e "  ${C_PRIMARY}5.${C_RESET} ${C_TEXT}系统DNS配置管理${C_RESET}"
+    echo -e "  ${C_PRIMARY}6.${C_RESET} ${C_TEXT}更新脚本${C_RESET}"
+    echo -e "  ${C_WARNING}7.${C_RESET} ${C_TEXT}删除脚本${C_RESET}"
     echo -e "  ${C_ERROR}0.${C_RESET} ${C_TEXT}退出${C_RESET}"
     read -p "$(echo -e "${C_INPUT_PROMPT} ► 请输入选项: ${C_RESET}")" main_choice
  
     case $main_choice in
-        1) alice_socks5_exit_menu ;;
+        1) alice_socks5_menu ;;
         2) dnsmasq_menu ;;
         3) smartdns_menu ;;
         4) dns_check_menu ;;
-        5) update_script ;;
-        6) delete_script ;;
+        5) system_dns_menu ;;
+        6) update_script ;;
+        7) delete_script ;;
         0) echo -e "\n${C_ERROR}退出脚本...${C_RESET}\n"; exit 0 ;;
         *) echo -e "\n${C_ERROR}无效选项！${C_RESET}" ;;
     esac
