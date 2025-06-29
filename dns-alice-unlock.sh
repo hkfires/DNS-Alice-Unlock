@@ -1,6 +1,6 @@
 #!/bin/bash
 
-VERSION="0.0.5"
+VERSION="0.0.6"
 LAST_UPDATED=$(date +"%Y-%m-%d")
 AUTHOR="hKFirEs"
 
@@ -489,18 +489,54 @@ smartdns_menu() {
     done
 }
 
-dns_check_menu() {
+xykt_media_check() {
     while true; do
-        echo -e "\n${C_SECONDARY}--- 流媒体解锁检测 ---${C_RESET}"
+        echo -e "\n${C_SECONDARY}--- XYKT流媒体检测脚本 ---${C_RESET}"
         echo -e "  ${C_PRIMARY}1.${C_RESET} ${C_TEXT}检测 IPv4 解锁${C_RESET}"
         echo -e "  ${C_PRIMARY}2.${C_RESET} ${C_TEXT}检测 IPv6 解锁${C_RESET}"
         echo -e "  ${C_PRIMARY}3.${C_RESET} ${C_TEXT}检测 IPv4&IPv6 解锁${C_RESET}"
+        echo -e "  ${C_SUCCESS}0.${C_RESET} ${C_TEXT}返回上一级${C_RESET}"
+        read -p "$(echo -e "${C_INPUT_PROMPT} ► 请输入选项: ${C_RESET}")" choice
+        case $choice in
+            1) bash <(curl -L -s https://raw.githubusercontent.com/hkfires/DNS-Alice-Unlock/refs/heads/main/dns-check.sh) -M 4 ;;
+            2) bash <(curl -L -s https://raw.githubusercontent.com/hkfires/DNS-Alice-Unlock/refs/heads/main/dns-check.sh) -M 6 ;;
+            3) bash <(curl -L -s https://raw.githubusercontent.com/hkfires/DNS-Alice-Unlock/refs/heads/main/dns-check.sh) ;;
+            0) break ;;
+            *) echo -e "\n${C_ERROR}无效选项！${C_RESET}" ;;
+        esac
+    done
+}
+
+1stream_media_check() {
+    while true; do
+        echo -e "\n${C_SECONDARY}--- 1-Stream流媒体检测脚本 ---${C_RESET}"
+        echo -e "  ${C_PRIMARY}1.${C_RESET} ${C_TEXT}检测 IPv4 解锁${C_RESET}"
+        echo -e "  ${C_PRIMARY}2.${C_RESET} ${C_TEXT}检测 IPv6 解锁${C_RESET}"
+        echo -e "  ${C_PRIMARY}3.${C_RESET} ${C_TEXT}检测 IPv4&IPv6 解锁${C_RESET}"
+        echo -e "  ${C_SUCCESS}0.${C_RESET} ${C_TEXT}返回上一级${C_RESET}"
+        read -p "$(echo -e "${C_INPUT_PROMPT} ► 请输入选项: ${C_RESET}")" choice
+        case $choice in
+            1) bash <(curl -L -s https://raw.githubusercontent.com/1-stream/RegionRestrictionCheck/refs/heads/main/check.sh) -M 4 ;;
+            2) bash <(curl -L -s https://raw.githubusercontent.com/1-stream/RegionRestrictionCheck/refs/heads/main/check.sh) -M 6 ;;
+            3) bash <(curl -L -s https://raw.githubusercontent.com/1-stream/RegionRestrictionCheck/refs/heads/main/check.sh) ;;
+            0) break ;;
+            *) echo -e "\n${C_ERROR}无效选项！${C_RESET}" ;;
+        esac
+    done
+}
+
+dns_check_menu() {
+    while true; do
+        echo -e "\n${C_SECONDARY}--- 流媒体解锁检测 ---${C_RESET}"
+        echo -e "  ${C_PRIMARY}1.${C_RESET} ${C_TEXT}1-Stream流媒体检测脚本"
+        echo -e "  ${C_HI_BLACK}(检测项目和分流域名一一对应，但不能区分DNS和原生解锁)${C_RESET}"
+        echo -e "  ${C_PRIMARY}2.${C_RESET} ${C_TEXT}XYKT流媒体检测脚本"
+        echo -e "  ${C_HI_BLACK}(检测项目和分流域名不完全对应，但能够区分DNS和原生解锁)${C_RESET}"
         echo -e "  ${C_SUCCESS}0.${C_RESET} ${C_TEXT}返回主菜单${C_RESET}"
         read -p "$(echo -e "${C_INPUT_PROMPT} ► 请输入选项: ${C_RESET}")" choice
         case $choice in
-            1) bash <(curl -L -s https://raw.githubusercontent.com/hkfires/DNS-Alice-Unlock/main/dns-check.sh) -M 4 ;;
-            2) bash <(curl -L -s https://raw.githubusercontent.com/hkfires/DNS-Alice-Unlock/main/dns-check.sh) -M 6 ;;
-            3) bash <(curl -L -s https://raw.githubusercontent.com/hkfires/DNS-Alice-Unlock/main/dns-check.sh) ;;
+            1) 1stream_media_check ;;
+            2) xykt_media_check ;;
             0) break ;;
             *) echo -e "\n${C_ERROR}无效选项！${C_RESET}" ;;
         esac
