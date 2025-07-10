@@ -1,6 +1,6 @@
 #!/bin/bash
 
-VERSION="0.0.8"
+VERSION="0.0.9"
 LAST_UPDATED=$(date +"%Y-%m-%d")
 AUTHOR="hKFirEs"
 
@@ -111,13 +111,11 @@ is_valid_ipv6() {
 }
 
 has_ipv4() {
-    (ip -4 addr show | grep -q "inet.*global") && \
-    (curl -4 -s --connect-timeout 2 https://ifconfig.co &>/dev/null)
+    ip -4 route get 1.1.1.1 &> /dev/null
 }
 
 has_ipv6() {
-    (ip -6 addr show | grep -q "inet6.*global") && \
-    (curl -6 -s --connect-timeout 2 https://ifconfig.co &>/dev/null)
+    ip -6 route get 2606:4700:4700::1111 &> /dev/null
 }
 
 select_unlock_ips() {
@@ -389,18 +387,53 @@ backup_resolv_conf() {
     fi
 }
 
+set_public_dns() {
+    chattr -i /etc/resolv.conf &>/dev/null
+    
+    local new_content=""
+    if has_ipv4; then
+        new_content+="nameserver 1.1.1.1\n"
+        new_content+="nameserver 8.8.8.8\n"
+    fi
+    if has_ipv6; then
+        new_content+="nameserver 2606:4700:4700::1111\n"
+        new_content+="nameserver 2001:4860:4860::8888\n"
+    fi
+
+    if [ -z "$new_content" ]; then
+        echo -e "\n${C_ERROR}未检测到有效的 IPv4 或 IPv6 网络连接，无法设置公共DNS。${C_RESET}"
+        return
+    fi
+
+    echo -e "\n${C_INFO}将应用以下公共DNS配置:${C_RESET}"
+    echo -e "${C_HI_BLACK}┌──────────────────────────"
+    echo -e "${new_content}" | sed 's/^/│ /' | sed 's/ *$//'
+    echo -e "└──────────────────────────${C_RESET}"
+
+    read -p "$(echo -e "${C_INPUT_PROMPT} ► 是否应用此配置？ (y/n): ${C_RESET}")" confirm
+    if [[ "$confirm" == "y" || "$confirm" == "Y" ]]; then
+        echo -e "$new_content" > /etc/resolv.conf
+        chattr +i /etc/resolv.conf
+        echo -e "\n${C_SUCCESS}已将 DNS 设置为公共 DNS (Cloudflare/Google) 并锁定。${C_RESET}"
+    else
+        echo -e "\n${C_INFO}操作已取消。${C_RESET}"
+    fi
+}
+
 system_dns_menu() {
     while true; do
         echo -e "\n${C_SECONDARY}--- 系统DNS配置管理 ---${C_RESET}"
         echo -e "  ${C_PRIMARY}1.${C_RESET} ${C_TEXT}备份 resolv.conf 文件${C_RESET}"
         echo -e "  ${C_PRIMARY}2.${C_RESET} ${C_TEXT}恢复 resolv.conf 备份${C_RESET}"
         echo -e "  ${C_PRIMARY}3.${C_RESET} ${C_TEXT}删除 resolv.conf 备份${C_RESET}"
+        echo -e "  ${C_PRIMARY}4.${C_RESET} ${C_TEXT}设置为公共DNS (Cloudflare/Google)${C_RESET}"
         echo -e "  ${C_SUCCESS}0.${C_RESET} ${C_TEXT}返回主菜单${C_RESET}"
         read -p "$(echo -e "${C_INPUT_PROMPT} ► 请输入选项: ${C_RESET}")" choice
         case $choice in
             1) backup_resolv_conf ;;
             2) restore_resolv_conf ;;
             3) delete_resolv_backup ;;
+            4) set_public_dns ;;
             0) break ;;
             *) echo -e "\n${C_ERROR}无效选项！${C_RESET}" ;;
         esac
