@@ -1,6 +1,6 @@
 #!/bin/bash
 
-VERSION="0.0.9"
+VERSION="0.1.0"
 LAST_UPDATED=$(date +"%Y-%m-%d")
 AUTHOR="hKFirEs"
 
@@ -261,8 +261,12 @@ display_backup_list() {
     
     i=1
     for backup in "${backups_ref[@]}"; do
-        TIMESTAMP=$(echo "$backup" | grep -o '[0-9]*$')
-        BACKUP_DATE=$(date -d "@$TIMESTAMP" "+%Y-%m-%d %H:%M:%S")
+        TIMESTAMP=$(echo "$backup" | grep -o '[0-g]*$')
+        if [ -n "$TIMESTAMP" ]; then
+            BACKUP_DATE=$(date -d "@$TIMESTAMP" "+%Y-%m-%d %H:%M:%S")
+        else
+            BACKUP_DATE="未知日期"
+        fi
         
         echo -e "${C_PRIMARY}${i}.${C_RESET} ${C_TEXT}${backup}${C_RESET} (${C_HI_WHITE}备份于: ${BACKUP_DATE}${C_RESET})"
         echo -e "${C_HI_BLACK}┌─ 文件内容预览 (前5行) ─"
@@ -407,12 +411,12 @@ set_public_dns() {
 
     echo -e "\n${C_INFO}将应用以下公共DNS配置:${C_RESET}"
     echo -e "${C_HI_BLACK}┌──────────────────────────"
-    echo -e "${new_content}" | sed 's/^/│ /' | sed 's/ *$//'
+    printf "%b" "${new_content}" | sed 's/^/│ /' | sed 's/ *$//'
     echo -e "└──────────────────────────${C_RESET}"
 
     read -p "$(echo -e "${C_INPUT_PROMPT} ► 是否应用此配置？ (y/n): ${C_RESET}")" confirm
     if [[ "$confirm" == "y" || "$confirm" == "Y" ]]; then
-        echo -e "$new_content" > /etc/resolv.conf
+        printf "%b" "$new_content" > /etc/resolv.conf
         chattr +i /etc/resolv.conf
         echo -e "\n${C_SUCCESS}已将 DNS 设置为公共 DNS (Cloudflare/Google) 并锁定。${C_RESET}"
     else
