@@ -1,6 +1,6 @@
 #!/bin/bash
 
-VERSION="0.1.0"
+VERSION="0.1.1"
 LAST_UPDATED=$(date +"%Y-%m-%d")
 AUTHOR="hKFirEs"
 
@@ -131,21 +131,16 @@ select_unlock_ips() {
         echo -e "${C_BORDER}└───────────────────────────────────────┘${C_RESET}"
         echo -e "  ${C_B_YELLOW}--- IPv4 DNS 选项 ---${C_RESET}"
         echo -e "  ${C_PRIMARY}1.${C_RESET} ${C_TEXT}专用 DNS (香港)${C_RESET}"
-        echo -e "  ${C_PRIMARY}2.${C_RESET} ${C_TEXT}专用 DNS (洛杉矶)${C_RESET}"
-        echo -e "  ${C_PRIMARY}3.${C_RESET} ${C_TEXT}专用 DNS (纽约)${C_RESET}"
-        echo -e "  ${C_PRIMARY}4.${C_RESET} ${C_TEXT}自定义 IPv4 地址${C_RESET}"
+        echo -e "  ${C_PRIMARY}2.${C_RESET} ${C_TEXT}自定义 IPv4 地址${C_RESET}"
         echo -e "  ${C_B_YELLOW}--- IPv6 DNS 选项 ---${C_RESET}"
-        echo -e "  ${C_PRIMARY}5.${C_RESET} ${C_TEXT}公共 DNS (暂时无法使用)${C_RESET}"
-        echo -e "  ${C_PRIMARY}6.${C_RESET} ${C_TEXT}专用 DNS (Alice用户专用)${C_RESET}"
-        echo -e "  ${C_PRIMARY}7.${C_RESET} ${C_TEXT}自定义 IPv6 地址${C_RESET}"
-        echo -e "  ${C_WARNING}8.${C_RESET} ${C_TEXT}跳过 (不设置任何DNS地址)${C_RESET}"
-        read -p "$(echo -e "${C_INPUT_PROMPT} ► 请输入选项 [1-8]: ${C_RESET}")" choice
+        echo -e "  ${C_PRIMARY}3.${C_RESET} ${C_TEXT}专用 DNS (香港)${C_RESET}"
+        echo -e "  ${C_PRIMARY}4.${C_RESET} ${C_TEXT}自定义 IPv6 地址${C_RESET}"
+        echo -e "  ${C_WARNING}5.${C_RESET} ${C_TEXT}跳过 (不设置任何DNS地址)${C_RESET}"
+        read -p "$(echo -e "${C_INPUT_PROMPT} ► 请输入选项 [1-5]: ${C_RESET}")" choice
 
         case $choice in
-            1) unlock_ipv4="181.215.6.75"; break ;;
-            2) unlock_ipv4="31.22.111.126"; break ;;
-            3) unlock_ipv4="31.59.111.6"; break ;;
-            4)
+            1) unlock_ipv4="91.103.120.36"; break ;;
+            2)
                 while true; do
                     read -p "$(echo -e "${C_INPUT_PROMPT} ► 请输入您的自定义解锁 IPv4 DNS地址: ${C_RESET}")" custom_ipv4
                     if is_valid_ipv4 "$custom_ipv4"; then
@@ -157,9 +152,8 @@ select_unlock_ips() {
                 done
                 break
                 ;;
-            5) unlock_ipv6="2a14:67c0:118::1"; break ;;
-            6) unlock_ipv6="2a14:67c0:103:c::a"; break ;;
-            7)
+            3) unlock_ipv6="2a14:67c0:119::1"; break ;;
+            4)
                 while true; do
                     read -p "$(echo -e "${C_INPUT_PROMPT} ► 请输入您的自定义解锁 IPv6 DNS地址: ${C_RESET}")" custom_ipv6
                     if is_valid_ipv6 "$custom_ipv6"; then
@@ -171,8 +165,8 @@ select_unlock_ips() {
                 done
                 break
                 ;;
-            8) break ;;
-            *) echo -e "\n${C_ERROR}无效选项，请输入 1 到 8 之间的数字。${C_RESET}" ;;
+            5) break ;;
+            *) echo -e "\n${C_ERROR}无效选项，请输入 1 到 5 之间的数字。${C_RESET}" ;;
         esac
     done
 
